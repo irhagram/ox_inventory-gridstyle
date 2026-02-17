@@ -1037,7 +1037,7 @@ function client.closeInventory(server)
 		closeTrunk()
 		SendNUIMessage({ action = 'closeInventory' })
 		SetInterval(client.interval, 200)
-		Wait(0)
+		Wait(200)
 
 		if invOpen ~= nil then return end
 

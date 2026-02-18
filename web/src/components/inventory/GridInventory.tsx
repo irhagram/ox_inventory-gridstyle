@@ -474,7 +474,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
             if (weaponData?.ammoName === sourceItem.name) {
               if (targetWeapon.searched === false) return;
               const currentAmmo = targetWeapon.metadata?.ammo ?? 0;
-              const maxAmmo = weaponData.maxAmmo ?? 9999;
+              const maxAmmo = targetWeapon.metadata?.maxAmmo ?? weaponData.maxAmmo ?? 9999;
               const canLoad = maxAmmo - currentAmmo;
               if (canLoad > 0) {
                 const loadCount = Math.min(sourceItem.count, canLoad);

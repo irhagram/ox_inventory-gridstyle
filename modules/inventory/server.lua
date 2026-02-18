@@ -3052,7 +3052,7 @@ lib.callback.register('ox_inventory:loadAmmo', function(source, data)
 
 	if not weaponItem.metadata then weaponItem.metadata = {} end
 
-	local maxAmmo = weaponData.maxammo or 9999
+	local maxAmmo = weaponItem.metadata.maxAmmo or weaponData.maxammo or 9999
 	local currentAmmo = weaponItem.metadata.ammo or 0
 	local canLoad = maxAmmo - currentAmmo
 	if canLoad <= 0 then return false end

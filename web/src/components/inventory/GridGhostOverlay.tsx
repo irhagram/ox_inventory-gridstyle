@@ -116,6 +116,7 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
   const compType = isComponentDrag ? draggedItemData!.type! : '';
   const isLocalItem = data.inventoryId === inventoryId;
 
+  // Component drag — highlight compatible weapons
   const weaponHighlights: React.ReactElement[] = [];
   const draggedCompatible = isComponentDrag ? draggedItemData?.compatibleWeapons : undefined;
   if (isComponentDrag) {
@@ -147,13 +148,49 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
     }
   }
 
+  // Ammo drag — highlight weapons that accept this ammo type
+  const isAmmoDrag = !!(draggedItemData && !draggedItemData.component && !draggedItemData.weapon);
+  const ammoHighlights: React.ReactElement[] = [];
+  if (isAmmoDrag) {
+    for (const invItem of inventoryItems) {
+      if (!isSlotWithItem(invItem)) continue;
+      const wData = Items[invItem.name];
+      if (!wData?.weapon || wData.ammoName !== data.item.name) continue;
+
+      const currentAmmo = (invItem as SlotWithItem).metadata?.ammo ?? 0;
+      const maxAmmo = (invItem as SlotWithItem).metadata?.maxAmmo ?? wData.maxAmmo ?? 250;
+      const isFull = currentAmmo >= maxAmmo;
+
+      const wSize = getWeaponEffectiveSize(invItem.name, (invItem as SlotWithItem).metadata);
+      const wRot = (invItem as SlotWithItem).rotated ?? false;
+      const { width: wW, height: wH } = getEffectiveDimensions(wSize, wRot);
+      const wX = (invItem as SlotWithItem).gridX ?? 0;
+      const wY = (invItem as SlotWithItem).gridY ?? 0;
+
+      ammoHighlights.push(
+        <div
+          key={`ahl-${invItem.slot}`}
+          className={`grid-ghost-cell ${isFull ? 'ghost-weapon-incompat' : 'ghost-weapon-compat'}`}
+          style={{
+            gridColumn: `${wX + 1} / span ${wW}`,
+            gridRow: `${wY + 1} / span ${wH}`,
+          }}
+        />
+      );
+    }
+  }
+
   if (!clientOffset || !containerRef.current) {
-    return weaponHighlights.length > 0 ? <>{weaponHighlights}</> : null;
+    if (weaponHighlights.length > 0) return <>{weaponHighlights}</>;
+    if (ammoHighlights.length > 0) return <>{ammoHighlights}</>;
+    return null;
   }
 
   const cell = pixelToGridCell(clientOffset.x, clientOffset.y, containerRef.current, gridWidth, gridHeight);
   if (!cell) {
-    return weaponHighlights.length > 0 ? <>{weaponHighlights}</> : null;
+    if (weaponHighlights.length > 0) return <>{weaponHighlights}</>;
+    if (ammoHighlights.length > 0) return <>{ammoHighlights}</>;
+    return null;
   }
 
   const size = { width: data.width ?? 1, height: data.height ?? 1 };
@@ -240,6 +277,44 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
         );
       }
     }
+  }
+
+  // Ammo drag hover — highlight the specific weapon being hovered
+  if (isAmmoDrag && ammoHighlights.length > 0) {
+    const ammoHoverSlotId = occupancy[cell.y]?.[cell.x];
+    if (ammoHoverSlotId !== null && ammoHoverSlotId !== undefined) {
+      const hoveredWeapon = inventoryItems.find((i) => i.slot === ammoHoverSlotId);
+      if (hoveredWeapon && isSlotWithItem(hoveredWeapon)) {
+        const wData = Items[hoveredWeapon.name];
+        if (wData?.weapon && wData.ammoName === data.item.name) {
+          const currentAmmo = hoveredWeapon.metadata?.ammo ?? 0;
+          const maxAmmo = hoveredWeapon.metadata?.maxAmmo ?? wData.maxAmmo ?? 250;
+          const canLoad = currentAmmo < maxAmmo;
+
+          const filteredHighlights = ammoHighlights.filter((el) => el.key !== `ahl-${hoveredWeapon.slot}`);
+          const wSize = getWeaponEffectiveSize(hoveredWeapon.name, hoveredWeapon.metadata);
+          const wRot = hoveredWeapon.rotated ?? false;
+          const { width: wW, height: wH } = getEffectiveDimensions(wSize, wRot);
+          const wX = hoveredWeapon.gridX ?? 0;
+          const wY = hoveredWeapon.gridY ?? 0;
+
+          return (
+            <>
+              {filteredHighlights}
+              <div
+                className={`grid-ghost-cell ${canLoad ? 'ghost-attach' : 'ghost-weapon-incompat'}`}
+                style={{
+                  gridColumn: `${wX + 1} / span ${wW}`,
+                  gridRow: `${wY + 1} / span ${wH}`,
+                }}
+              />
+            </>
+          );
+        }
+      }
+    }
+    // Hovering over non-weapon area — show all compatible weapon outlines
+    return <>{ammoHighlights}</>;
   }
 
   const valid = canPlaceItem(occupancy, gridWidth, gridHeight, anchorX, anchorY, effW, effH);

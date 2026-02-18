@@ -181,6 +181,7 @@ function client.openInventory(inv, data)
     end
 
     local left, right, accessError
+    local craftingInventoryPayload = nil
 
     if inv == 'player' and data ~= cache.serverId then
         local targetId, targetPed, serverId
@@ -215,7 +216,8 @@ function client.openInventory(inv, data)
             return lib.notify({ id = 'cannot_perform', type = 'error', description = locale('cannot_perform') })
         end
 
-        left, right, accessError = lib.callback.await('ox_inventory:openCraftingBench', 200, data.id, data.index)
+        local craftinginvData
+        left, craftinginvData, accessError = lib.callback.await('ox_inventory:openCraftingBench', 200, data.id, data.index)
 
         if left then
             right = CraftingBenches[data.id]
@@ -242,6 +244,8 @@ function client.openInventory(inv, data)
                 coords = coords,
                 distance = distance
             }
+
+            craftingInventoryPayload = craftinginvData
         end
     elseif invOpen ~= nil then
         if inv == 'policeevidence' then
@@ -345,7 +349,8 @@ function client.openInventory(inv, data)
         action = 'setupInventory',
         data = {
             leftInventory = left,
-            rightInventory = currentInventory
+            rightInventory = currentInventory,
+            craftingInventory = craftingInventoryPayload
         }
     })
 

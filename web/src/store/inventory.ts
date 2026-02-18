@@ -26,6 +26,7 @@ const initialState: State = {
   leftInventory: { ...emptyInventory },
   rightInventory: { ...emptyInventory },
   backpackInventory: { ...emptyInventory },
+  craftingInventory: { ...emptyInventory },
   additionalMetadata: new Array(),
   itemAmount: 0,
   shiftPressed: false,
@@ -111,6 +112,13 @@ export const inventorySlice = createSlice({
     closeBackpack: (state) => {
       state.backpackInventory = { id: '', type: '', slots: 0, maxWeight: 0, items: [] };
     },
+    setupCraftingInventory: (state, action: PayloadAction<Inventory>) => {
+      const curTime = Math.floor(Date.now() / 1000);
+      state.craftingInventory = setupGridInventory(action.payload, curTime);
+    },
+    closeCraftingInventory: (state) => {
+      state.craftingInventory = { id: '', type: '', slots: 0, maxWeight: 0, items: [] };
+    },
     setBackpackWeight: (state, action: PayloadAction<number>) => {
       const backpackItem = state.leftInventory.items.find(
         (item) => item.metadata?.container === state.backpackInventory.id
@@ -182,6 +190,45 @@ export const inventorySlice = createSlice({
       state.craftQueue = [];
       state.craftQueueProcessing = false;
     },
+    loadAmmoToWeapon: (
+      state,
+      action: PayloadAction<{
+        ammoSlot: number;
+        weaponSlot: number;
+        ammoCount: number;
+        sourceInvId: string;
+        targetInvId: string;
+      }>
+    ) => {
+      const { ammoSlot, weaponSlot, ammoCount, sourceInvId, targetInvId } = action.payload;
+
+      const resolveInv = (invId: string) =>
+        state.leftInventory.id === invId
+          ? state.leftInventory
+          : state.backpackInventory.id === invId
+          ? state.backpackInventory
+          : state.craftingInventory.id === invId
+          ? state.craftingInventory
+          : state.rightInventory;
+
+      const sourceInv = resolveInv(sourceInvId);
+      const targetInv = resolveInv(targetInvId);
+
+      const ammoItem = sourceInv.items.find((i) => i.slot === ammoSlot);
+      if (ammoItem && (ammoItem as any).count !== undefined) {
+        if ((ammoItem as any).count <= ammoCount) {
+          sourceInv.items = sourceInv.items.filter((i) => i.slot !== ammoSlot);
+        } else {
+          (ammoItem as any).count -= ammoCount;
+        }
+      }
+
+      const weapon = targetInv.items.find((i) => i.slot === weaponSlot);
+      if (weapon) {
+        if (!weapon.metadata) weapon.metadata = {};
+        weapon.metadata.ammo = (weapon.metadata.ammo ?? 0) + ammoCount;
+      }
+    },
     attachComponentToWeapon: (
       state,
       action: PayloadAction<{
@@ -199,6 +246,8 @@ export const inventorySlice = createSlice({
           ? state.leftInventory
           : state.backpackInventory.id === sourceInvId
           ? state.backpackInventory
+          : state.craftingInventory.id === sourceInvId
+          ? state.craftingInventory
           : state.rightInventory;
 
       sourceInv.items = sourceInv.items.filter((i) => i.slot !== componentSlot);
@@ -208,6 +257,8 @@ export const inventorySlice = createSlice({
           ? state.leftInventory
           : state.backpackInventory.id === targetInvId
           ? state.backpackInventory
+          : state.craftingInventory.id === targetInvId
+          ? state.craftingInventory
           : state.rightInventory;
 
       const weapon = targetInv.items.find((i) => i.slot === weaponSlot);
@@ -217,14 +268,18 @@ export const inventorySlice = createSlice({
         weapon.metadata.components.push(componentName);
       }
     },
-    beginItemSearch: (state, action: PayloadAction<number>) => {
-      if (!state.searchState.searchingSlots.includes(action.payload)) {
-        state.searchState.searchingSlots.push(action.payload);
+    beginItemSearch: (state, action: PayloadAction<{ slot: number; inventoryId: string }>) => {
+      const { slot, inventoryId } = action.payload;
+      if (!state.searchState.searchingSlots.some((s) => s.slot === slot && s.inventoryId === inventoryId)) {
+        state.searchState.searchingSlots.push({ slot, inventoryId });
       }
     },
-    finishItemSearch: (state, action: PayloadAction<number>) => {
-      state.searchState.searchingSlots = state.searchState.searchingSlots.filter((s) => s !== action.payload);
-      const item = state.rightInventory.items.find((i) => i.slot === action.payload);
+    finishItemSearch: (state, action: PayloadAction<{ slot: number; inventoryId: string }>) => {
+      const { slot, inventoryId } = action.payload;
+      state.searchState.searchingSlots = state.searchState.searchingSlots.filter(
+        (s) => !(s.slot === slot && s.inventoryId === inventoryId)
+      );
+      const item = state.rightInventory.items.find((i) => i.slot === slot);
       if (item) item.searched = true;
     },
   },
@@ -241,6 +296,7 @@ export const inventorySlice = createSlice({
         rightInventory: current(state.rightInventory),
         backpackInventory: current(state.backpackInventory),
       };
+      // craftingInventory history not tracked to avoid restoration on drag failures
     });
     builder.addMatcher(isNonCraftingFulfilled, (state) => {
       state.isBusy = false;
@@ -281,6 +337,8 @@ export const {
   setupBackpack,
   closeBackpack,
   setBackpackWeight,
+  setupCraftingInventory,
+  closeCraftingInventory,
   addToCraftQueue,
   updateCraftQueueItem,
   completeSingleCraft,
@@ -288,6 +346,7 @@ export const {
   removeCraftQueueItem,
   setCraftQueueProcessing,
   clearCraftQueue,
+  loadAmmoToWeapon,
   attachComponentToWeapon,
   beginItemSearch,
   finishItemSearch,
@@ -295,6 +354,7 @@ export const {
 export const selectLeftInventory = (state: RootState) => state.inventory.leftInventory;
 export const selectRightInventory = (state: RootState) => state.inventory.rightInventory;
 export const selectBackpackInventory = (state: RootState) => state.inventory.backpackInventory;
+export const selectCraftingInventory = (state: RootState) => state.inventory.craftingInventory;
 export const selectItemAmount = (state: RootState) => state.inventory.itemAmount;
 export const selectIsBusy = (state: RootState) => state.inventory.isBusy;
 export const selectDragRotated = (state: RootState) => state.inventory.dragRotated;

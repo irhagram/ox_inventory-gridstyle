@@ -33,6 +33,8 @@ export const Items: {
     width: 2,
     height: 1,
     weapon: true,
+    ammoName: 'ammo_9mm',
+    maxAmmo: 250,
   },
   weapon_assaultrifle: {
     name: 'weapon_assaultrifle',
@@ -44,6 +46,8 @@ export const Items: {
     width: 5,
     height: 2,
     weapon: true,
+    ammoName: 'ammo_9mm',
+    maxAmmo: 250,
   },
   medkit: {
     name: 'medkit',
@@ -86,6 +90,8 @@ export const Items: {
     width: 3,
     height: 2,
     weapon: true,
+    ammoName: 'ammo_9mm',
+    maxAmmo: 250,
   },
   armour: {
     name: 'armour',

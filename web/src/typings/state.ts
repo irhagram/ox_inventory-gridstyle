@@ -3,13 +3,14 @@ import { Slot } from './slot';
 import { CraftQueueItem } from './crafting';
 
 export type SearchState = {
-  searchingSlots: number[];
+  searchingSlots: { slot: number; inventoryId: string }[];
 };
 
 export type State = {
   leftInventory: Inventory;
   rightInventory: Inventory;
   backpackInventory: Inventory;
+  craftingInventory: Inventory;
   itemAmount: number;
   shiftPressed: boolean;
   isBusy: boolean;

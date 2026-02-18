@@ -20,6 +20,7 @@ import {
   removeCraftQueueItem,
   updateCraftQueueItem,
   attachComponentToWeapon,
+  loadAmmoToWeapon,
 } from '../../store/inventory';
 import { fetchNui } from '../../utils/fetchNui';
 import { Items } from '../../store/items';
@@ -98,6 +99,8 @@ function getTypeIcon(type: string): React.ReactNode {
       return <svg {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
     case 'backpack':
       return <svg {...p}><path d="M4 10a4 4 0 014-4h8a4 4 0 014 4v10a2 2 0 01-2 2H6a2 2 0 01-2-2V10z"/><path d="M9 6V4a3 3 0 016 0v2"/><path d="M8 22v-4a4 4 0 018 0v4"/></svg>;
+    case 'craftinginv':
+      return <svg {...p}><path d="M2 20a2 2 0 002 2h16a2 2 0 002-2V8l-7-7H4a2 2 0 00-2 2v17z"/><path d="M14 2v6h6"/><path d="M12 12v6"/><path d="M9 15h6"/></svg>;
     default:
       return <svg {...p}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>;
   }
@@ -392,6 +395,8 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
           ? reduxState.leftInventory
           : source.inventoryId === reduxState.backpackInventory.id
           ? reduxState.backpackInventory
+          : reduxState.craftingInventory.id && source.inventoryId === reduxState.craftingInventory.id
+          ? reduxState.craftingInventory
           : reduxState.rightInventory;
       const sourceItem = sourceInv.items.find((i) => i.slot === source.item.slot);
       if (!sourceItem || !isSlotWithItem(sourceItem)) return;
@@ -453,6 +458,41 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
               targetInvId: inventory.id,
             }));
             return;
+          }
+        }
+      }
+
+      // Ammo loading — drag ammo item onto a compatible weapon
+      const ammoItemData = Items[sourceItem.name];
+      if (ammoItemData && !ammoItemData.component && !ammoItemData.weapon) {
+        const ammoOccupancy = buildOccupancyGrid(gridWidth, gridHeight, inventory.items, itemSizes);
+        const ammoTargetSlotId = ammoOccupancy[cell.y]?.[cell.x];
+        if (ammoTargetSlotId !== null && ammoTargetSlotId !== undefined) {
+          const targetWeapon = inventory.items.find((i) => i.slot === ammoTargetSlotId);
+          if (targetWeapon && isSlotWithItem(targetWeapon) && Items[targetWeapon.name]?.weapon) {
+            const weaponData = Items[targetWeapon.name];
+            if (weaponData?.ammoName === sourceItem.name) {
+              if (targetWeapon.searched === false) return;
+              const currentAmmo = targetWeapon.metadata?.ammo ?? 0;
+              const maxAmmo = targetWeapon.metadata?.maxAmmo ?? weaponData.maxAmmo ?? 250;
+              const canLoad = maxAmmo - currentAmmo;
+              if (canLoad > 0) {
+                const loadCount = Math.min(sourceItem.count, canLoad);
+                fetchNui('loadAmmo', {
+                  ammoSlot: sourceItem.slot,
+                  weaponSlot: targetWeapon.slot,
+                  count: loadCount,
+                });
+                dispatch(loadAmmoToWeapon({
+                  ammoSlot: sourceItem.slot,
+                  weaponSlot: targetWeapon.slot,
+                  ammoCount: loadCount,
+                  sourceInvId: sourceInv.id,
+                  targetInvId: inventory.id,
+                }));
+                return;
+              }
+            }
           }
         }
       }
@@ -798,6 +838,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
             inventoryType={inventory.type}
             inventoryId={inventory.id}
             inventoryGroups={inventory.groups}
+            inventorySearchable={!!inventory.searchable}
           />
         ))}
         {isBusy && (

@@ -13,6 +13,7 @@ export const DEFAULT_GRID_DIMENSIONS: Record<string, GridDimensions> = {
   policeevidence: { gridWidth: 10, gridHeight: 7 },
   shop: { gridWidth: 10, gridHeight: 7 },
   crafting: { gridWidth: 10, gridHeight: 7 },
+  craftinginv: { gridWidth: 8, gridHeight: 5 },
 };
 
 export const CELL_SIZE_VH = 5.8;

@@ -45,11 +45,15 @@ export const refreshSlotsReducer: CaseReducer<State, PayloadAction<Payload>> = (
             ? state.leftInventory
             : data.inventory === InventoryType.BACKPACK || (state.backpackInventory.id && data.inventory === state.backpackInventory.id)
             ? state.backpackInventory
+            : (state.craftingInventory.id && data.inventory === state.craftingInventory.id)
+            ? state.craftingInventory
             : state.rightInventory
           : state.leftInventory;
 
         const invKey = targetInventory === state.leftInventory ? 'left'
-          : targetInventory === state.backpackInventory ? 'backpack' : 'right';
+          : targetInventory === state.backpackInventory ? 'backpack'
+          : targetInventory === state.craftingInventory ? 'craftinginv'
+          : 'right';
 
         data.item.durability = itemDurability(data.item.metadata, curTime);
 
@@ -152,6 +156,8 @@ export const refreshSlotsReducer: CaseReducer<State, PayloadAction<Payload>> = (
         ? 'rightInventory'
         : inventoryId === state.backpackInventory.id
         ? 'backpackInventory'
+        : inventoryId === state.craftingInventory.id
+        ? 'craftingInventory'
         : null;
 
     if (!inv) return;
@@ -170,6 +176,8 @@ export const refreshSlotsReducer: CaseReducer<State, PayloadAction<Payload>> = (
         ? 'rightInventory'
         : inventoryId === state.backpackInventory.id
         ? 'backpackInventory'
+        : inventoryId === state.craftingInventory.id
+        ? 'craftingInventory'
         : null;
 
     if (!inv) return;

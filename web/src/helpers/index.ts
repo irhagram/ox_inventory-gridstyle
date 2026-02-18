@@ -50,24 +50,27 @@ export const canPurchaseItem = (item: Slot, inventory: { type: Inventory['type']
 export const canCraftItem = (item: Slot, inventoryType: string) => {
   if (!isSlotWithItem(item) || inventoryType !== 'crafting') return true;
   if (!item.ingredients) return true;
-  const leftInventory = store.getState().inventory.leftInventory;
+  const state = store.getState().inventory;
+  // Use craftingInventory (dedicated bench storage) if available, else fallback to player inventory
+  const checkInventory = state.craftingInventory.id ? state.craftingInventory : state.leftInventory;
   const ingredientItems = Object.entries(item.ingredients);
 
   const remainingItems = ingredientItems.filter((ingredient) => {
-    const [item, count] = [ingredient[0], ingredient[1]];
-    const globalItem = Items[item];
+    const [itemName, count] = [ingredient[0], ingredient[1]];
+    const globalItem = Items[itemName];
 
     if (count >= 1) {
       if (globalItem && globalItem.count >= count) return false;
     }
 
-    const hasItem = leftInventory.items.find((playerItem) => {
-      if (isSlotWithItem(playerItem) && playerItem.name === item) {
+    const hasItem = checkInventory.items.find((playerItem) => {
+      if (isSlotWithItem(playerItem) && playerItem.name === itemName) {
         if (count < 1) {
           if (playerItem.metadata?.durability >= count * 100) return true;
 
           return false;
         }
+        if (playerItem.count >= count) return true;
       }
     });
 
@@ -85,7 +88,8 @@ export const canCraftItemWithReservations = (
   if (!isSlotWithItem(item) || inventoryType !== 'crafting') return true;
   if (!item.ingredients) return true;
 
-  const leftInventory = store.getState().inventory.leftInventory;
+  const invState = store.getState().inventory;
+  const checkInventory = invState.craftingInventory.id ? invState.craftingInventory : invState.leftInventory;
 
   for (const [ingredientName, needed] of Object.entries(item.ingredients)) {
     if (needed < 1) continue;
@@ -94,7 +98,7 @@ export const canCraftItemWithReservations = (
     const totalNeeded = alreadyReserved + needed;
 
     let available = 0;
-    for (const slot of leftInventory.items) {
+    for (const slot of checkInventory.items) {
       if (isSlotWithItem(slot) && slot.name === ingredientName) {
         available += slot.count;
       }
@@ -138,6 +142,7 @@ export const getTargetInventory = (
   const resolve = (type: Inventory['type']) => {
     if (type === InventoryType.PLAYER) return state.leftInventory;
     if (type === InventoryType.BACKPACK) return state.backpackInventory;
+    if (type === InventoryType.CRAFTINGINV) return state.craftingInventory;
     return state.rightInventory;
   };
 

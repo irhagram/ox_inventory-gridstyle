@@ -47,6 +47,23 @@ function OxInventory:closeInventory(noEvent, keepBackpack)
 		self.backpackSlot = nil
 	end
 
+	-- Close craftinginv when player closes inventory
+	if self.openCraftingInv then
+		local craftinginv = Inventory(self.openCraftingInv)
+
+		if craftinginv then
+			if craftinginv.openedBy then craftinginv.openedBy[self.id] = nil end
+
+			if craftinginv.changed then
+				Inventory.Save(craftinginv)
+			end
+
+			craftinginv:set('open', false)
+		end
+
+		self.openCraftingInv = nil
+	end
+
 	if not self.open then return end
 
 	local inv = Inventory(self.open)
@@ -2115,6 +2132,7 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 	local function resolveInventory(invType)
 		if invType == 'player' then return playerInventory
 		elseif invType == 'backpack' then return playerInventory.openBackpack and Inventory(playerInventory.openBackpack)
+		elseif invType == 'craftinginv' then return playerInventory.openCraftingInv and Inventory(playerInventory.openCraftingInv)
 		else return Inventory(playerInventory.open)
 		end
 	end
@@ -2994,6 +3012,59 @@ lib.callback.register('ox_inventory:attachComponent', function(source, data)
 	table.insert(weaponItem.metadata.components, componentItem.name)
 	weaponItem.weight = Inventory.SlotWeight(weaponData, weaponItem)
 
+	inv.weight = inv.weight + (weaponItem.weight - oldWeaponWeight)
+
+	inv.changed = true
+	inv:syncSlotsWithClients({
+		{ item = weaponItem }
+	}, true)
+
+	if server.syncInventory then server.syncInventory(inv) end
+
+	return true
+end)
+
+lib.callback.register('ox_inventory:loadAmmo', function(source, data)
+	if not data or not data.ammoSlot or not data.weaponSlot or not data.count then return false end
+
+	local inv = Inventory(source)
+	if not inv then return false end
+
+	local ammoRef = ('%s:%s'):format(inv.id, data.ammoSlot)
+	local weapRef = ('%s:%s'):format(inv.id, data.weaponSlot)
+	if activeSlots[ammoRef] or activeSlots[weapRef] then return false end
+	activeSlots[ammoRef] = true
+	activeSlots[weapRef] = true
+	local _ <close> = defer(function()
+		activeSlots[ammoRef] = nil
+		activeSlots[weapRef] = nil
+	end)
+
+	local ammoItem = inv.items[data.ammoSlot]
+	local weaponItem = inv.items[data.weaponSlot]
+
+	if not ammoItem or not weaponItem then return false end
+
+	local weaponData = Items(weaponItem.name)
+	if not weaponData or not weaponData.weapon then return false end
+	if not weaponData.ammoname then return false end
+	if weaponData.ammoname ~= ammoItem.name then return false end
+
+	if not weaponItem.metadata then weaponItem.metadata = {} end
+
+	local maxAmmo = weaponItem.metadata.maxAmmo or weaponData.maxammo or 250
+	local currentAmmo = weaponItem.metadata.ammo or 0
+	local canLoad = maxAmmo - currentAmmo
+	if canLoad <= 0 then return false end
+
+	local loadCount = math.min(data.count, ammoItem.count or 0, canLoad)
+	if loadCount <= 0 then return false end
+
+	if not Inventory.RemoveItem(inv, ammoItem.name, loadCount, nil, data.ammoSlot) then return false end
+
+	local oldWeaponWeight = weaponItem.weight or 0
+	weaponItem.metadata.ammo = currentAmmo + loadCount
+	weaponItem.weight = Inventory.SlotWeight(weaponData, weaponItem)
 	inv.weight = inv.weight + (weaponItem.weight - oldWeaponWeight)
 
 	inv.changed = true

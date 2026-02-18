@@ -213,9 +213,9 @@ const playerInventory = {
     },
     {
       slot: 20,
-      name: 'at_suppressor_heavy',
+      name: 'ammo-9',
       weight: 280,
-      count: 1,
+      count: 100,
       gridX: 7,
       gridY: 4,
       rotated: false,

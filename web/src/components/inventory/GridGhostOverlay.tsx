@@ -158,7 +158,7 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
       if (!wData?.weapon || wData.ammoName !== data.item.name) continue;
 
       const currentAmmo = (invItem as SlotWithItem).metadata?.ammo ?? 0;
-      const maxAmmo = (invItem as SlotWithItem).metadata?.maxAmmo ?? wData.maxAmmo ?? 9999;
+      const maxAmmo = (invItem as SlotWithItem).metadata?.maxAmmo ?? wData.maxAmmo ?? 250;
       const isFull = currentAmmo >= maxAmmo;
 
       const wSize = getWeaponEffectiveSize(invItem.name, (invItem as SlotWithItem).metadata);
@@ -288,7 +288,7 @@ const GridGhostOverlay: React.FC<GridGhostOverlayProps> = ({
         const wData = Items[hoveredWeapon.name];
         if (wData?.weapon && wData.ammoName === data.item.name) {
           const currentAmmo = hoveredWeapon.metadata?.ammo ?? 0;
-          const maxAmmo = hoveredWeapon.metadata?.maxAmmo ?? wData.maxAmmo ?? 9999;
+          const maxAmmo = hoveredWeapon.metadata?.maxAmmo ?? wData.maxAmmo ?? 250;
           const canLoad = currentAmmo < maxAmmo;
 
           const filteredHighlights = ammoHighlights.filter((el) => el.key !== `ahl-${hoveredWeapon.slot}`);

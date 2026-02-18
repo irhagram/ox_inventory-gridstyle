@@ -99,9 +99,10 @@ export const setupInventoryReducer: CaseReducer<
   PayloadAction<{
     leftInventory?: Inventory;
     rightInventory?: Inventory;
+    craftingInventory?: Inventory | null;
   }>
 > = (state, action) => {
-  const { leftInventory, rightInventory } = action.payload;
+  const { leftInventory, rightInventory, craftingInventory } = action.payload;
   const curTime = Math.floor(Date.now() / 1000);
 
   if (leftInventory) {
@@ -114,6 +115,13 @@ export const setupInventoryReducer: CaseReducer<
     state.rightInventory = isGridInventory(rightInventory.type)
       ? setupGridInventory(rightInventory, curTime)
       : setupSlotInventory(rightInventory, curTime);
+  }
+
+  if (craftingInventory) {
+    state.craftingInventory = setupGridInventory(craftingInventory, curTime);
+  } else {
+    // Clear crafting inventory whenever setupInventory fires (non-crafting context)
+    state.craftingInventory = { id: '', type: '', slots: 0, maxWeight: 0, items: [] };
   }
 
   state.shiftPressed = false;

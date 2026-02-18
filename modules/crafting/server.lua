@@ -20,13 +20,6 @@ local function validateInt(val, min, max)
 	return val
 end
 
----@param toType any
----@return string
-local function validateToType(toType)
-	if toType ~= 'player' and toType ~= 'backpack' then return 'player' end
-	return toType
-end
-
 ---@param id number
 ---@param data table
 local function createCraftingBench(id, data)
@@ -81,6 +74,38 @@ local function getCraftingCoords(source, bench, index)
 	end
 end
 
+---Get or create the dedicated crafting inventory for a bench location.
+---@param benchId string|number
+---@param index number
+---@return OxInventory|nil
+local function getOrCreateCraftingInv(benchId, index)
+	local invId = ('craftinginv_%s_%s'):format(benchId, index)
+	local inv = Inventory(invId)
+
+	if not inv then
+		inv = Inventory.Create(invId, locale('crafting_bench') .. ' Storage', 'craftinginv', 40, 0, 100000, false)
+	end
+
+	return inv
+end
+
+---Build the data table to send to the client/NUI for a craftinginv.
+---@param craftinginv table
+---@return table
+local function buildCraftingInvData(craftinginv)
+	return {
+		id = craftinginv.id,
+		type = craftinginv.type,
+		label = craftinginv.label,
+		slots = craftinginv.slots,
+		weight = craftinginv.weight,
+		maxWeight = craftinginv.maxWeight,
+		gridWidth = craftinginv.gridWidth,
+		gridHeight = craftinginv.gridHeight,
+		items = craftinginv.items,
+	}
+end
+
 lib.callback.register('ox_inventory:openCraftingBench', function(source, id, index)
 	local left, bench = Inventory(source), CraftingBenches[id]
 
@@ -104,9 +129,28 @@ lib.callback.register('ox_inventory:openCraftingBench', function(source, id, ind
 		end
 
 		left:openInventory(left)
+
+		-- Create or retrieve dedicated crafting inventory for this bench location
+		local craftinginv = getOrCreateCraftingInv(id, index)
+
+		if craftinginv then
+			craftinginv.openedBy[source] = true
+			craftinginv:set('open', true)
+			left.openCraftingInv = craftinginv.id
+		end
 	end
 
-	return { label = left.label, type = left.type, slots = left.slots, weight = left.weight, maxWeight = left.maxWeight, gridWidth = left.gridWidth, gridHeight = left.gridHeight }
+	local craftinginv = left.openCraftingInv and Inventory(left.openCraftingInv)
+
+	return {
+		label = left.label,
+		type = left.type,
+		slots = left.slots,
+		weight = left.weight,
+		maxWeight = left.maxWeight,
+		gridWidth = left.gridWidth,
+		gridHeight = left.gridHeight,
+	}, craftinginv and buildCraftingInvData(craftinginv)
 end)
 
 local TriggerEventHooks = require 'modules.hooks.server'
@@ -138,7 +182,11 @@ local function validateAndPrepare(source, left, bench, recipeId)
 	local craftedItem = Items(recipe.name)
 	local craftCount = (type(recipe.count) == 'number' and recipe.count) or (table.type(recipe.count) == 'array' and math.random(recipe.count[1], recipe.count[2])) or 1
 
-	local items = Inventory.Search(left, 'slots', nameList) or {}
+	-- Search ingredients in craftinginv (dedicated crafting storage), fallback to player inv
+	local craftinginv = left.openCraftingInv and Inventory(left.openCraftingInv)
+	local searchInv = craftinginv or left
+
+	local items = Inventory.Search(searchInv, 'slots', nameList) or {}
 
 	local tbl = {}
 	local ingredientWeight = 0
@@ -198,13 +246,13 @@ local function validateAndPrepare(source, left, bench, recipeId)
 	return tbl, craftedItem, craftCount, recipe, ingredientWeight
 end
 
----@param left table
+---@param sourceInv table Inventory to consume ingredients from (craftinginv or player)
 ---@param tbl table Slot consumption map
-local function consumeIngredients(left, tbl)
+local function consumeIngredients(sourceInv, tbl)
 	local pendingSyncs = {}
 
 	for slot, count in pairs(tbl) do
-		local invSlot = left.items[slot]
+		local invSlot = sourceInv.items[slot]
 
 		if not invSlot then return false end
 
@@ -220,13 +268,13 @@ local function consumeIngredients(left, tbl)
 			end
 
 			if invSlot.count > 1 then
-				local emptySlot = Inventory.GetEmptySlot(left)
+				local emptySlot = Inventory.GetEmptySlot(sourceInv)
 
 				if emptySlot then
-					local newItem = Inventory.SetSlot(left, item, 1, table.deepclone(invSlot.metadata), emptySlot)
+					local newItem = Inventory.SetSlot(sourceInv, item, 1, table.deepclone(invSlot.metadata), emptySlot)
 
 					if newItem then
-						Items.UpdateDurability(left, newItem, item, durability < 0 and 0 or durability)
+						Items.UpdateDurability(sourceInv, newItem, item, durability < 0 and 0 or durability)
 					end
 				end
 
@@ -235,164 +283,25 @@ local function consumeIngredients(left, tbl)
 
 				pendingSyncs[#pendingSyncs + 1] = {
 					item = invSlot,
-					inventory = left.id
+					inventory = sourceInv.id
 				}
 			else
-				Items.UpdateDurability(left, invSlot, item, durability < 0 and 0 or durability)
+				Items.UpdateDurability(sourceInv, invSlot, item, durability < 0 and 0 or durability)
 			end
 		else
-			local removed = invSlot and Inventory.RemoveItem(left, invSlot.name, count, nil, slot)
+			local removed = invSlot and Inventory.RemoveItem(sourceInv, invSlot.name, count, nil, slot)
 			if not removed then return false end
 		end
 	end
 
 	if #pendingSyncs > 0 then
-		left:syncSlotsWithClients(pendingSyncs, true)
+		sourceInv:syncSlotsWithClients(pendingSyncs, true)
 	end
 
 	return true
 end
 
-lib.callback.register('ox_inventory:craftItem', function(source, id, index, recipeId, toSlot, toGridX, toGridY, rotated, toType)
-	recipeId = validateInt(recipeId, 1, 1000)
-	if not recipeId then return end
-
-	toType = validateToType(toType)
-	if toSlot ~= nil then
-		toSlot = validateInt(toSlot, 1, 1000)
-		if not toSlot then return end
-	end
-
-	local left, bench = Inventory(source), CraftingBenches[id]
-
-	if not left then return end
-	if not bench then return end
-
-	local tbl, craftedItem, craftCount, recipe, ingredientWeight = validateAndPrepare(source, left, bench, recipeId)
-	if not tbl or not recipe then return end
-
-	local targetInv, backpackItem = resolveTargetInventory(left, toType)
-	if not targetInv then return end
-
-	local craftWeight = (craftedItem.weight + (recipe.metadata?.weight or 0)) * craftCount
-	if targetInv.weight + craftWeight - ingredientWeight > targetInv.maxWeight then return false, 'cannot_carry' end
-
-	if not TriggerEventHooks('craftItem', {
-		source = source,
-		benchId = id,
-		benchIndex = index,
-		recipe = recipe,
-		toInventory = targetInv.id,
-		toSlot = toSlot,
-	}) then return false end
-
-	local success = lib.callback.await('ox_inventory:startCrafting', source, id, recipeId)
-
-	if success then
-		for name, needs in pairs(recipe.ingredients) do
-			if Inventory.GetItemCount(left, name) < needs then return end
-		end
-
-		if not consumeIngredients(left, tbl) then return end
-
-		local added, newItem = Inventory.AddItem(targetInv, craftedItem, craftCount, recipe.metadata or {}, craftedItem.stack and toSlot or nil)
-
-		if added and toGridX ~= nil and newItem then
-			overrideGridPosition(targetInv, newItem, craftedItem, toGridX, toGridY, rotated)
-		end
-
-		if backpackItem and added and newItem then
-			TriggerClientEvent('ox_inventory:itemNotify', source, { newItem, 'ui_added', craftCount })
-		end
-
-		if backpackItem and added then
-			Inventory.ContainerWeight(backpackItem, targetInv.weight, left)
-		end
-	end
-
-	return success
-end)
-
-lib.callback.register('ox_inventory:startCraftQueueItem', function(source, id, index, recipeId)
-	recipeId = validateInt(recipeId, 1, 1000)
-	if not recipeId then return false end
-
-	local left, bench = Inventory(source), CraftingBenches[id]
-
-	if not left then return false end
-	if not bench then return false end
-
-	local tbl, craftedItem, craftCount, recipe, ingredientWeight = validateAndPrepare(source, left, bench, recipeId)
-	if not tbl or not recipe then return false end
-
-	local craftedItemWeight = (craftedItem.weight + (recipe.metadata?.weight or 0)) * craftCount
-	if left.weight + craftedItemWeight - ingredientWeight > left.maxWeight then
-		return false, 'cannot_carry'
-	end
-
-	if not TriggerEventHooks('craftItem', {
-		source = source,
-		benchId = id,
-		benchIndex = index,
-		recipe = recipe,
-		toInventory = left.id,
-	}) then return false end
-
-	if not consumeIngredients(left, tbl) then return false end
-
-	local refundItems = {}
-	for name, needs in pairs(recipe.ingredients) do
-		if needs >= 1 then
-			refundItems[#refundItems + 1] = { name = name, count = needs }
-		end
-	end
-
-	pendingCraftCounter += 1
-	local pendingId = ('%s_%s_%d_%d'):format(source, recipe.name, pendingCraftCounter, math.random(100000, 999999))
-
-	if not PendingCrafts[source] then
-		PendingCrafts[source] = {}
-	end
-
-	PendingCrafts[source][pendingId] = {
-		state = 'crafting',
-		item = craftedItem,
-		count = craftCount,
-		metadata = recipe.metadata or {},
-		refundItems = refundItems,
-	}
-
-	local duration = recipe.duration or 3000
-	Wait(duration)
-
-	if not PendingCrafts[source] or not PendingCrafts[source][pendingId] then
-		return false
-	end
-
-	PendingCrafts[source][pendingId].state = 'ready'
-	PendingCrafts[source][pendingId].refundItems = nil
-
-	return {
-		success = true,
-		pendingCraftId = pendingId,
-		duration = duration,
-	}
-end)
-
----@param playerInv table
----@param toType? string
----@return table|nil targetInv
----@return table|nil backpackItem
-local function resolveTargetInventory(playerInv, toType)
-	if toType == 'backpack' then
-		if not playerInv.openBackpack or not playerInv.backpackSlot then return nil end
-		local backpack = Inventory(playerInv.openBackpack)
-		if not backpack then return nil end
-		return backpack, playerInv.items[playerInv.backpackSlot]
-	end
-	return playerInv, nil
-end
-
+---Overrides the grid position of a newly added item.
 ---@param targetInv table
 ---@param slotItem table
 ---@param item table Item definition
@@ -424,10 +333,134 @@ local function overrideGridPosition(targetInv, slotItem, item, gx, gy, rotated)
 	end
 end
 
+lib.callback.register('ox_inventory:craftItem', function(source, id, index, recipeId, toSlot, toGridX, toGridY, rotated, toType)
+	recipeId = validateInt(recipeId, 1, 1000)
+	if not recipeId then return end
+
+	if toSlot ~= nil then
+		toSlot = validateInt(toSlot, 1, 1000)
+		if not toSlot then return end
+	end
+
+	local left, bench = Inventory(source), CraftingBenches[id]
+
+	if not left then return end
+	if not bench then return end
+
+	local tbl, craftedItem, craftCount, recipe, ingredientWeight = validateAndPrepare(source, left, bench, recipeId)
+	if not tbl or not recipe then return end
+
+	-- Output always goes to craftinginv
+	local craftinginv = left.openCraftingInv and Inventory(left.openCraftingInv)
+	if not craftinginv then return end
+
+	local craftWeight = (craftedItem.weight + (recipe.metadata?.weight or 0)) * craftCount
+	if craftinginv.weight + craftWeight - ingredientWeight > craftinginv.maxWeight then return false, 'cannot_carry' end
+
+	if not TriggerEventHooks('craftItem', {
+		source = source,
+		benchId = id,
+		benchIndex = index,
+		recipe = recipe,
+		toInventory = craftinginv.id,
+		toSlot = toSlot,
+	}) then return false end
+
+	local success = lib.callback.await('ox_inventory:startCrafting', source, id, recipeId)
+
+	if success then
+		-- Re-check ingredients in case something changed during animation
+		local searchInv = craftinginv
+		for name, needs in pairs(recipe.ingredients) do
+			if Inventory.GetItemCount(searchInv, name) < needs then return end
+		end
+
+		if not consumeIngredients(craftinginv, tbl) then return end
+
+		local added, newItem = Inventory.AddItem(craftinginv, craftedItem, craftCount, recipe.metadata or {}, craftedItem.stack and toSlot or nil)
+
+		if added and toGridX ~= nil and newItem then
+			overrideGridPosition(craftinginv, newItem, craftedItem, toGridX, toGridY, rotated)
+		end
+	end
+
+	return success
+end)
+
+lib.callback.register('ox_inventory:startCraftQueueItem', function(source, id, index, recipeId)
+	recipeId = validateInt(recipeId, 1, 1000)
+	if not recipeId then return false end
+
+	local left, bench = Inventory(source), CraftingBenches[id]
+
+	if not left then return false end
+	if not bench then return false end
+
+	local tbl, craftedItem, craftCount, recipe, ingredientWeight = validateAndPrepare(source, left, bench, recipeId)
+	if not tbl or not recipe then return false end
+
+	-- Use craftinginv as source and target
+	local craftinginv = left.openCraftingInv and Inventory(left.openCraftingInv)
+	if not craftinginv then return false end
+
+	local craftedItemWeight = (craftedItem.weight + (recipe.metadata?.weight or 0)) * craftCount
+	if craftinginv.weight + craftedItemWeight - ingredientWeight > craftinginv.maxWeight then
+		return false, 'cannot_carry'
+	end
+
+	if not TriggerEventHooks('craftItem', {
+		source = source,
+		benchId = id,
+		benchIndex = index,
+		recipe = recipe,
+		toInventory = craftinginv.id,
+	}) then return false end
+
+	if not consumeIngredients(craftinginv, tbl) then return false end
+
+	local refundItems = {}
+	for name, needs in pairs(recipe.ingredients) do
+		if needs >= 1 then
+			refundItems[#refundItems + 1] = { name = name, count = needs }
+		end
+	end
+
+	pendingCraftCounter += 1
+	local pendingId = ('%s_%s_%d_%d'):format(source, recipe.name, pendingCraftCounter, math.random(100000, 999999))
+
+	if not PendingCrafts[source] then
+		PendingCrafts[source] = {}
+	end
+
+	PendingCrafts[source][pendingId] = {
+		state = 'crafting',
+		item = craftedItem,
+		count = craftCount,
+		metadata = recipe.metadata or {},
+		refundItems = refundItems,
+		craftinginvId = craftinginv.id,
+	}
+
+	local duration = recipe.duration or 3000
+	Wait(duration)
+
+	if not PendingCrafts[source] or not PendingCrafts[source][pendingId] then
+		return false
+	end
+
+	PendingCrafts[source][pendingId].state = 'ready'
+	PendingCrafts[source][pendingId].refundItems = nil
+
+	return {
+		success = true,
+		pendingCraftId = pendingId,
+		duration = duration,
+	}
+end)
+
 lib.callback.register('ox_inventory:collectCraftItem', function(source, pendingCraftId, toSlot, toGridX, toGridY, rotated, toType)
 	if type(pendingCraftId) ~= 'string' then return false end
 
-	toType = validateToType(toType)
 	if toSlot ~= nil then
 		toSlot = validateInt(toSlot, 1, 1000)
 		if not toSlot then return false end
@@ -446,19 +479,20 @@ lib.callback.register('ox_inventory:collectCraftItem', function(source, pendingC
 
 	pending.state = 'collected'
 
-	local targetInv, backpackItem = resolveTargetInventory(playerInv, toType)
-	if not targetInv then
-		pending.state = 'ready'
-		return false
+	-- Output always goes to craftinginv
+	local craftinginv = pending.craftinginvId and Inventory(pending.craftinginvId)
+	if not craftinginv then
+		-- Fallback to player inventory if craftinginv unavailable
+		craftinginv = playerInv
 	end
 
 	local itemWeight = (pending.item.weight + (pending.metadata?.weight or 0)) * pending.count
-	if targetInv.weight + itemWeight > targetInv.maxWeight then
+	if craftinginv.weight + itemWeight > craftinginv.maxWeight then
 		pending.state = 'ready'
 		return false, 'cannot_carry'
 	end
 
-	local added, newItem = Inventory.AddItem(targetInv, pending.item, pending.count, pending.metadata, pending.item.stack and toSlot or nil)
+	local added, newItem = Inventory.AddItem(craftinginv, pending.item, pending.count, pending.metadata, pending.item.stack and toSlot or nil)
 
 	if not added then
 		pending.state = 'ready'
@@ -466,15 +500,7 @@ lib.callback.register('ox_inventory:collectCraftItem', function(source, pendingC
 	end
 
 	if toGridX ~= nil and newItem then
-		overrideGridPosition(targetInv, newItem, pending.item, toGridX, toGridY, rotated)
-	end
-
-	if backpackItem and newItem then
-		TriggerClientEvent('ox_inventory:itemNotify', source, { newItem, 'ui_added', pending.count })
-	end
-
-	if backpackItem then
-		Inventory.ContainerWeight(backpackItem, targetInv.weight, playerInv)
+		overrideGridPosition(craftinginv, newItem, pending.item, toGridX, toGridY, rotated)
 	end
 
 	PendingCrafts[source][pendingCraftId] = nil
@@ -487,7 +513,6 @@ lib.callback.register('ox_inventory:collectCraftItem', function(source, pendingC
 end)
 
 lib.callback.register('ox_inventory:batchCollectCraftItems', function(source, pendingCraftIds, toSlot, toGridX, toGridY, rotated, toType)
-	toType = validateToType(toType)
 	if toSlot ~= nil then
 		toSlot = validateInt(toSlot, 1, 1000)
 		if not toSlot then return false end
@@ -504,21 +529,30 @@ lib.callback.register('ox_inventory:batchCollectCraftItems', function(source, pe
 	if not PendingCrafts[source] then return false end
 	if #pendingCraftIds == 0 then return false end
 
-	local targetInv, backpackItem = resolveTargetInventory(playerInv, toType)
-	if not targetInv then return false end
+	-- Determine target inventory (craftinginv from first valid pending)
+	local craftinginv = nil
+	for _, pendingId in ipairs(pendingCraftIds) do
+		local pending = PendingCrafts[source][pendingId]
+		if pending and pending.craftinginvId then
+			craftinginv = Inventory(pending.craftinginvId)
+			break
+		end
+	end
+
+	if not craftinginv then craftinginv = playerInv end
 
 	local totalCount = 0
 	local validPendingIds = {}
 	local pendingItem = nil
 	local pendingMetadata = nil
-	local runningWeight = targetInv.weight
+	local runningWeight = craftinginv.weight
 
 	for _, pendingId in ipairs(pendingCraftIds) do
 		local pending = PendingCrafts[source][pendingId]
 		if pending and pending.state == 'ready' then
 			pending.state = 'collected'
 			local itemWeight = (pending.item.weight + (pending.metadata?.weight or 0)) * pending.count
-			if runningWeight + itemWeight <= targetInv.maxWeight then
+			if runningWeight + itemWeight <= craftinginv.maxWeight then
 				runningWeight = runningWeight + itemWeight
 				totalCount = totalCount + pending.count
 				if not pendingItem then
@@ -538,13 +572,13 @@ lib.callback.register('ox_inventory:batchCollectCraftItems', function(source, pe
 
 	local resolvedSlot = nil
 	if pendingItem.stack and toSlot then
-		local existingSlotData = targetInv.items[toSlot]
+		local existingSlotData = craftinginv.items[toSlot]
 		if existingSlotData then
 			if existingSlotData.name == pendingItem.name then
 				resolvedSlot = toSlot
 			else
 				local maxSlot = 0
-				for k in pairs(targetInv.items) do
+				for k in pairs(craftinginv.items) do
 					if type(k) == 'number' and k > maxSlot then maxSlot = k end
 				end
 				resolvedSlot = maxSlot + 1
@@ -554,7 +588,7 @@ lib.callback.register('ox_inventory:batchCollectCraftItems', function(source, pe
 		end
 	end
 
-	local added, newItem = Inventory.AddItem(targetInv, pendingItem, totalCount, pendingMetadata, resolvedSlot)
+	local added, newItem = Inventory.AddItem(craftinginv, pendingItem, totalCount, pendingMetadata, resolvedSlot)
 
 	if not added then
 		for _, pendingId in ipairs(validPendingIds) do
@@ -573,19 +607,8 @@ lib.callback.register('ox_inventory:batchCollectCraftItems', function(source, pe
 	if newItem and toGridX ~= nil then
 		local slotObj = newItem.slot and newItem or newItem[1]
 		if slotObj then
-			overrideGridPosition(targetInv, slotObj, pendingItem, toGridX, toGridY, rotated)
+			overrideGridPosition(craftinginv, slotObj, pendingItem, toGridX, toGridY, rotated)
 		end
-	end
-
-	if backpackItem and newItem then
-		local slotObj = newItem.slot and newItem or newItem[1]
-		if slotObj then
-			TriggerClientEvent('ox_inventory:itemNotify', source, { slotObj, 'ui_added', totalCount })
-		end
-	end
-
-	if backpackItem then
-		Inventory.ContainerWeight(backpackItem, targetInv.weight, playerInv)
 	end
 
 	if PendingCrafts[source] and not next(PendingCrafts[source]) then
@@ -610,11 +633,13 @@ local function flushPendingCrafts(source, isDisconnecting)
 	for pendingId, pending in pairs(PendingCrafts[source]) do
 		if pending.state == 'collected' then
 		elseif pending.state == 'crafting' then
+			-- Refund ingredients back to craftinginv
+			local refundInv = (pending.craftinginvId and Inventory(pending.craftinginvId)) or left
 			if pending.refundItems then
 				for _, refund in ipairs(pending.refundItems) do
 					local item = Items(refund.name)
 					if item then
-						Inventory.AddItem(left, item, refund.count)
+						Inventory.AddItem(refundInv, item, refund.count)
 					end
 				end
 			end
@@ -623,7 +648,12 @@ local function flushPendingCrafts(source, isDisconnecting)
 			if readyGroups[name] then
 				readyGroups[name].totalCount = readyGroups[name].totalCount + pending.count
 			else
-				readyGroups[name] = { item = pending.item, metadata = pending.metadata, totalCount = pending.count }
+				readyGroups[name] = {
+					item = pending.item,
+					metadata = pending.metadata,
+					totalCount = pending.count,
+					craftinginvId = pending.craftinginvId,
+				}
 				readyOrder[#readyOrder + 1] = name
 			end
 		end
@@ -631,23 +661,32 @@ local function flushPendingCrafts(source, isDisconnecting)
 
 	for _, name in ipairs(readyOrder) do
 		local group = readyGroups[name]
-		local added = Inventory.AddItem(left, group.item, group.totalCount, group.metadata)
+		-- Try to add ready crafts to craftinginv first, fallback to player inv
+		local targetInv = (group.craftinginvId and Inventory(group.craftinginvId)) or left
+		local added = Inventory.AddItem(targetInv, group.item, group.totalCount, group.metadata)
 
 		if not added then
-			if isDisconnecting then
-				warn(('[ox_inventory] flushPendingCrafts: could not add %s x%d for player %s - item lost'):format(
-					name, group.totalCount, source
-				))
-			else
-				local ped = GetPlayerPed(source)
-				if ped and ped ~= 0 then
-					exports.ox_inventory:CustomDrop('Crafted', {
-						{ name, group.totalCount, group.metadata }
-					}, GetEntityCoords(ped))
-				else
-					warn(('[ox_inventory] flushPendingCrafts: could not add or drop %s x%d for player %s'):format(
+			-- If craftinginv full, try player inventory
+			if targetInv ~= left then
+				added = Inventory.AddItem(left, group.item, group.totalCount, group.metadata)
+			end
+
+			if not added then
+				if isDisconnecting then
+					warn(('[ox_inventory] flushPendingCrafts: could not add %s x%d for player %s - item lost'):format(
 						name, group.totalCount, source
 					))
+				else
+					local ped = GetPlayerPed(source)
+					if ped and ped ~= 0 then
+						exports.ox_inventory:CustomDrop('Crafted', {
+							{ name, group.totalCount, group.metadata }
+						}, GetEntityCoords(ped))
+					else
+						warn(('[ox_inventory] flushPendingCrafts: could not add or drop %s x%d for player %s'):format(
+							name, group.totalCount, source
+						))
+					end
 				end
 			end
 		end

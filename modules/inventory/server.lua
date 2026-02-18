@@ -47,6 +47,23 @@ function OxInventory:closeInventory(noEvent, keepBackpack)
 		self.backpackSlot = nil
 	end
 
+	-- Close craftinginv when player closes inventory
+	if self.openCraftingInv then
+		local craftinginv = Inventory(self.openCraftingInv)
+
+		if craftinginv then
+			if craftinginv.openedBy then craftinginv.openedBy[self.id] = nil end
+
+			if craftinginv.changed then
+				Inventory.Save(craftinginv)
+			end
+
+			craftinginv:set('open', false)
+		end
+
+		self.openCraftingInv = nil
+	end
+
 	if not self.open then return end
 
 	local inv = Inventory(self.open)
@@ -2115,6 +2132,7 @@ lib.callback.register('ox_inventory:swapItems', function(source, data)
 	local function resolveInventory(invType)
 		if invType == 'player' then return playerInventory
 		elseif invType == 'backpack' then return playerInventory.openBackpack and Inventory(playerInventory.openBackpack)
+		elseif invType == 'craftinginv' then return playerInventory.openCraftingInv and Inventory(playerInventory.openCraftingInv)
 		else return Inventory(playerInventory.open)
 		end
 	end

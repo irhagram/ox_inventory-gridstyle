@@ -5,7 +5,22 @@ import useNuiEvent from '../../hooks/useNuiEvent';
 import InventoryHotbar from './InventoryHotbar';
 import { useAppDispatch, useAppSelector } from '../../store';
 import { store } from '../../store';
-import { refreshSlots, setAdditionalMetadata, setupInventory, restoreHotbar, selectRightInventory, selectBackpackInventory, setupBackpack, closeBackpack, removePlayerItem, removeBackpackItem, clearCraftQueue } from '../../store/inventory';
+import {
+  refreshSlots,
+  setAdditionalMetadata,
+  setupInventory,
+  restoreHotbar,
+  selectRightInventory,
+  selectBackpackInventory,
+  selectCraftingInventory,
+  setupBackpack,
+  closeBackpack,
+  setupCraftingInventory,
+  closeCraftingInventory,
+  removePlayerItem,
+  removeBackpackItem,
+  clearCraftQueue,
+} from '../../store/inventory';
 import { reconcileHotbar } from '../../helpers/hotbarPersistence';
 import { useExitListener } from '../../hooks/useExitListener';
 import type { Inventory as InventoryProps } from '../../typings';
@@ -13,6 +28,7 @@ import { DragSource } from '../../typings';
 import RightInventory from './RightInventory';
 import LeftInventory from './LeftInventory';
 import BackpackInventory from './BackpackInventory';
+import CraftingInvPanel from './CraftingInvPanel';
 import Tooltip from '../utils/Tooltip';
 import { closeTooltip } from '../../store/tooltip';
 import InventoryContext from './InventoryContext';
@@ -43,9 +59,16 @@ const Inventory: React.FC = () => {
     [backpackInventory.type, backpackInventory.id]
   );
 
+  const craftingInventory = useAppSelector(selectCraftingInventory);
+  const hasCraftingInv = useMemo(() =>
+    craftingInventory.type === 'craftinginv' && craftingInventory.id !== '',
+    [craftingInventory.type, craftingInventory.id]
+  );
+
   const leftDrag = usePanelDrag('ox_inv_panel_left');
   const rightDrag = usePanelDrag('ox_inv_panel_right');
   const backpackDrag = usePanelDrag('ox_inv_panel_backpack');
+  const craftingInvDrag = usePanelDrag('ox_inv_panel_craftinginv');
 
   useEffect(() => {
     if (hasRightInventory && leftDrag.position && !rightDrag.position) {
@@ -83,6 +106,11 @@ const Inventory: React.FC = () => {
     backpackDrag.onMouseDown(e);
   }, [backpackDrag.onMouseDown, backpackDrag.isLocked]);
 
+  const handleCraftingInvHeaderDown = useCallback((e: React.MouseEvent) => {
+    if (craftingInvDrag.isLocked) return;
+    craftingInvDrag.onMouseDown(e);
+  }, [craftingInvDrag.onMouseDown, craftingInvDrag.isLocked]);
+
   useNuiEvent<boolean>('setInventoryVisible', setInventoryVisible);
   useNuiEvent<false>('closeInventory', () => {
     batch(() => {
@@ -97,6 +125,7 @@ const Inventory: React.FC = () => {
   useNuiEvent<{
     leftInventory?: InventoryProps;
     rightInventory?: InventoryProps;
+    craftingInventory?: InventoryProps | null;
   }>('setupInventory', (data) => {
     dispatch(setupInventory(data));
     if (data.leftInventory) {
@@ -126,6 +155,7 @@ const Inventory: React.FC = () => {
         const panels = [
           leftDrag.panelRef.current,
           backpackDrag.panelRef.current,
+          craftingInvDrag.panelRef.current,
           rightDrag.panelRef.current,
         ];
         for (const panel of panels) {
@@ -147,6 +177,9 @@ const Inventory: React.FC = () => {
       if (source.inventory === 'backpack' || source.inventoryId === state.backpackInventory.id) {
         sourceItem = state.backpackInventory.items.find((i) => i.slot === source.item.slot);
         fromType = 'backpack';
+      } else if (state.craftingInventory.id && source.inventoryId === state.craftingInventory.id) {
+        sourceItem = state.craftingInventory.items.find((i) => i.slot === source.item.slot);
+        fromType = 'craftinginv';
       } else {
         sourceItem = state.leftInventory.items.find((i) => i.slot === source.item.slot);
         fromType = 'player';
@@ -174,7 +207,7 @@ const Inventory: React.FC = () => {
 
       if (fromType === 'backpack') {
         dispatch(removeBackpackItem(sourceItem.slot));
-      } else {
+      } else if (fromType !== 'craftinginv') {
         dispatch(removePlayerItem(sourceItem.slot));
       }
     },
@@ -183,6 +216,7 @@ const Inventory: React.FC = () => {
   const leftPositioned = leftDrag.position !== null;
   const rightPositioned = rightDrag.position !== null;
   const backpackPositioned = backpackDrag.position !== null;
+  const craftingInvPositioned = craftingInvDrag.position !== null;
 
   return (
     <>
@@ -220,6 +254,22 @@ const Inventory: React.FC = () => {
                 onHeaderMouseDown={handleBackpackHeaderDown}
                 isLocked={backpackDrag.isLocked}
                 onToggleLock={backpackDrag.toggleLock}
+              />
+            )}
+          </div>
+          <div
+            ref={craftingInvDrag.panelRef}
+            className={`inventory-panel inventory-panel--craftinginv${hasCraftingInv ? ' inventory-panel--active' : ''}${craftingInvPositioned ? ' inventory-panel--positioned' : ''}${craftingInvDrag.isDragging ? ' inventory-panel--dragging' : ''}`}
+            style={craftingInvPositioned ? {
+              left: craftingInvDrag.position!.x,
+              top: craftingInvDrag.position!.y,
+            } : {}}
+          >
+            {hasCraftingInv && (
+              <CraftingInvPanel
+                onHeaderMouseDown={handleCraftingInvHeaderDown}
+                isLocked={craftingInvDrag.isLocked}
+                onToggleLock={craftingInvDrag.toggleLock}
               />
             )}
           </div>

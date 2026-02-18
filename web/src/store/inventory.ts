@@ -26,6 +26,7 @@ const initialState: State = {
   leftInventory: { ...emptyInventory },
   rightInventory: { ...emptyInventory },
   backpackInventory: { ...emptyInventory },
+  craftingInventory: { ...emptyInventory },
   additionalMetadata: new Array(),
   itemAmount: 0,
   shiftPressed: false,
@@ -110,6 +111,13 @@ export const inventorySlice = createSlice({
     },
     closeBackpack: (state) => {
       state.backpackInventory = { id: '', type: '', slots: 0, maxWeight: 0, items: [] };
+    },
+    setupCraftingInventory: (state, action: PayloadAction<Inventory>) => {
+      const curTime = Math.floor(Date.now() / 1000);
+      state.craftingInventory = setupGridInventory(action.payload, curTime);
+    },
+    closeCraftingInventory: (state) => {
+      state.craftingInventory = { id: '', type: '', slots: 0, maxWeight: 0, items: [] };
     },
     setBackpackWeight: (state, action: PayloadAction<number>) => {
       const backpackItem = state.leftInventory.items.find(
@@ -199,6 +207,8 @@ export const inventorySlice = createSlice({
           ? state.leftInventory
           : state.backpackInventory.id === sourceInvId
           ? state.backpackInventory
+          : state.craftingInventory.id === sourceInvId
+          ? state.craftingInventory
           : state.rightInventory;
 
       sourceInv.items = sourceInv.items.filter((i) => i.slot !== componentSlot);
@@ -208,6 +218,8 @@ export const inventorySlice = createSlice({
           ? state.leftInventory
           : state.backpackInventory.id === targetInvId
           ? state.backpackInventory
+          : state.craftingInventory.id === targetInvId
+          ? state.craftingInventory
           : state.rightInventory;
 
       const weapon = targetInv.items.find((i) => i.slot === weaponSlot);
@@ -241,6 +253,7 @@ export const inventorySlice = createSlice({
         rightInventory: current(state.rightInventory),
         backpackInventory: current(state.backpackInventory),
       };
+      // craftingInventory history not tracked to avoid restoration on drag failures
     });
     builder.addMatcher(isNonCraftingFulfilled, (state) => {
       state.isBusy = false;
@@ -281,6 +294,8 @@ export const {
   setupBackpack,
   closeBackpack,
   setBackpackWeight,
+  setupCraftingInventory,
+  closeCraftingInventory,
   addToCraftQueue,
   updateCraftQueueItem,
   completeSingleCraft,
@@ -295,6 +310,7 @@ export const {
 export const selectLeftInventory = (state: RootState) => state.inventory.leftInventory;
 export const selectRightInventory = (state: RootState) => state.inventory.rightInventory;
 export const selectBackpackInventory = (state: RootState) => state.inventory.backpackInventory;
+export const selectCraftingInventory = (state: RootState) => state.inventory.craftingInventory;
 export const selectItemAmount = (state: RootState) => state.inventory.itemAmount;
 export const selectIsBusy = (state: RootState) => state.inventory.isBusy;
 export const selectDragRotated = (state: RootState) => state.inventory.dragRotated;

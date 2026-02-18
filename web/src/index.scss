@@ -42,6 +42,7 @@ $type-evidence: #ef4444;
 $type-container: #8b5cf6;
 $type-newdrop: #f97316;
 $type-backpack: #e879f9;
+$type-craftinginv: #fb923c;
 
 :root {
   --cell-size: 5.8vh;
@@ -883,6 +884,17 @@ button:active {
   }
 
   &--backpack {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.inventory-panel--active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  &--craftinginv {
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1897,6 +1909,7 @@ $inv-types: (
   'policeevidence': $type-evidence,
   'container': $type-container,
   'backpack': $type-backpack,
+  'craftinginv': $type-craftinginv,
 );
 
 @each $type, $color in $inv-types {

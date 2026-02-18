@@ -701,6 +701,46 @@ const gloveboxInventory = {
   ],
 };
 
+const craftingInvDebugInventory = {
+  id: 'craftinginv_debug_crafting_1',
+  type: 'craftinginv',
+  slots: 40,
+  label: 'Crafting Bench Storage',
+  weight: 2000,
+  maxWeight: 100000,
+  gridWidth: 8,
+  gridHeight: 5,
+  items: [
+    {
+      slot: 1,
+      name: 'lockpick',
+      weight: 200,
+      count: 5,
+      gridX: 0,
+      gridY: 0,
+      rotated: false,
+    },
+    {
+      slot: 2,
+      name: 'water',
+      weight: 500,
+      count: 3,
+      gridX: 1,
+      gridY: 0,
+      rotated: false,
+    },
+    {
+      slot: 3,
+      name: 'bandage',
+      weight: 100,
+      count: 8,
+      gridX: 2,
+      gridY: 0,
+      rotated: false,
+    },
+  ],
+};
+
 const dropInventory = {
   id: 'drop_1',
   type: 'drop',
@@ -778,6 +818,7 @@ const App: React.FC = () => {
         setupInventory({
           leftInventory: JSON.parse(JSON.stringify(playerInventory)),
           rightInventory: JSON.parse(JSON.stringify(inventoryPresets[view])),
+          craftingInventory: view === 'crafting' ? JSON.parse(JSON.stringify(craftingInvDebugInventory)) : null,
         })
       );
     },

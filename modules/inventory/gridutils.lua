@@ -120,6 +120,7 @@ local dimensionDefaults = {
     policeevidence = { 10, 7 },
     shop = { 10, 7 },
     crafting = { 10, 7 },
+    craftinginv = { 8, 5 },
 }
 
 function GridUtils.GetDimensions(invType, slots)

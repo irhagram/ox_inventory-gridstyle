@@ -3,7 +3,7 @@ import { Slot } from './slot';
 import { CraftQueueItem } from './crafting';
 
 export type SearchState = {
-  searchingSlots: number[];
+  searchingSlots: { slot: number; inventoryId: string }[];
 };
 
 export type State = {

@@ -838,6 +838,7 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
             inventoryType={inventory.type}
             inventoryId={inventory.id}
             inventoryGroups={inventory.groups}
+            inventorySearchable={!!inventory.searchable}
           />
         ))}
         {isBusy && (

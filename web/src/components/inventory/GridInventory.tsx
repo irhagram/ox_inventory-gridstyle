@@ -20,6 +20,7 @@ import {
   removeCraftQueueItem,
   updateCraftQueueItem,
   attachComponentToWeapon,
+  loadAmmoToWeapon,
 } from '../../store/inventory';
 import { fetchNui } from '../../utils/fetchNui';
 import { Items } from '../../store/items';
@@ -457,6 +458,41 @@ const GridInventory: React.FC<GridInventoryProps> = ({ inventory, onHeaderMouseD
               targetInvId: inventory.id,
             }));
             return;
+          }
+        }
+      }
+
+      // Ammo loading — drag ammo item onto a compatible weapon
+      const ammoItemData = Items[sourceItem.name];
+      if (ammoItemData && !ammoItemData.component && !ammoItemData.weapon) {
+        const ammoOccupancy = buildOccupancyGrid(gridWidth, gridHeight, inventory.items, itemSizes);
+        const ammoTargetSlotId = ammoOccupancy[cell.y]?.[cell.x];
+        if (ammoTargetSlotId !== null && ammoTargetSlotId !== undefined) {
+          const targetWeapon = inventory.items.find((i) => i.slot === ammoTargetSlotId);
+          if (targetWeapon && isSlotWithItem(targetWeapon) && Items[targetWeapon.name]?.weapon) {
+            const weaponData = Items[targetWeapon.name];
+            if (weaponData?.ammoName === sourceItem.name) {
+              if (targetWeapon.searched === false) return;
+              const currentAmmo = targetWeapon.metadata?.ammo ?? 0;
+              const maxAmmo = weaponData.maxAmmo ?? 9999;
+              const canLoad = maxAmmo - currentAmmo;
+              if (canLoad > 0) {
+                const loadCount = Math.min(sourceItem.count, canLoad);
+                fetchNui('loadAmmo', {
+                  ammoSlot: sourceItem.slot,
+                  weaponSlot: targetWeapon.slot,
+                  count: loadCount,
+                });
+                dispatch(loadAmmoToWeapon({
+                  ammoSlot: sourceItem.slot,
+                  weaponSlot: targetWeapon.slot,
+                  ammoCount: loadCount,
+                  sourceInvId: sourceInv.id,
+                  targetInvId: inventory.id,
+                }));
+                return;
+              }
+            }
           }
         }
       }

@@ -190,6 +190,45 @@ export const inventorySlice = createSlice({
       state.craftQueue = [];
       state.craftQueueProcessing = false;
     },
+    loadAmmoToWeapon: (
+      state,
+      action: PayloadAction<{
+        ammoSlot: number;
+        weaponSlot: number;
+        ammoCount: number;
+        sourceInvId: string;
+        targetInvId: string;
+      }>
+    ) => {
+      const { ammoSlot, weaponSlot, ammoCount, sourceInvId, targetInvId } = action.payload;
+
+      const resolveInv = (invId: string) =>
+        state.leftInventory.id === invId
+          ? state.leftInventory
+          : state.backpackInventory.id === invId
+          ? state.backpackInventory
+          : state.craftingInventory.id === invId
+          ? state.craftingInventory
+          : state.rightInventory;
+
+      const sourceInv = resolveInv(sourceInvId);
+      const targetInv = resolveInv(targetInvId);
+
+      const ammoItem = sourceInv.items.find((i) => i.slot === ammoSlot);
+      if (ammoItem && (ammoItem as any).count !== undefined) {
+        if ((ammoItem as any).count <= ammoCount) {
+          sourceInv.items = sourceInv.items.filter((i) => i.slot !== ammoSlot);
+        } else {
+          (ammoItem as any).count -= ammoCount;
+        }
+      }
+
+      const weapon = targetInv.items.find((i) => i.slot === weaponSlot);
+      if (weapon) {
+        if (!weapon.metadata) weapon.metadata = {};
+        weapon.metadata.ammo = (weapon.metadata.ammo ?? 0) + ammoCount;
+      }
+    },
     attachComponentToWeapon: (
       state,
       action: PayloadAction<{
@@ -303,6 +342,7 @@ export const {
   removeCraftQueueItem,
   setCraftQueueProcessing,
   clearCraftQueue,
+  loadAmmoToWeapon,
   attachComponentToWeapon,
   beginItemSearch,
   finishItemSearch,

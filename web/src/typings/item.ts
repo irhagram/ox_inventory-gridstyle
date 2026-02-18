@@ -9,6 +9,7 @@ export type ItemData = {
   description?: string;
   buttons?: string[];
   ammoName?: string;
+  maxAmmo?: number;
   image?: string;
   width?: number;
   height?: number;

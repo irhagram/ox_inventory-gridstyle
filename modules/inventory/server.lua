@@ -3024,6 +3024,59 @@ lib.callback.register('ox_inventory:attachComponent', function(source, data)
 	return true
 end)
 
+lib.callback.register('ox_inventory:loadAmmo', function(source, data)
+	if not data or not data.ammoSlot or not data.weaponSlot or not data.count then return false end
+
+	local inv = Inventory(source)
+	if not inv then return false end
+
+	local ammoRef = ('%s:%s'):format(inv.id, data.ammoSlot)
+	local weapRef = ('%s:%s'):format(inv.id, data.weaponSlot)
+	if activeSlots[ammoRef] or activeSlots[weapRef] then return false end
+	activeSlots[ammoRef] = true
+	activeSlots[weapRef] = true
+	local _ <close> = defer(function()
+		activeSlots[ammoRef] = nil
+		activeSlots[weapRef] = nil
+	end)
+
+	local ammoItem = inv.items[data.ammoSlot]
+	local weaponItem = inv.items[data.weaponSlot]
+
+	if not ammoItem or not weaponItem then return false end
+
+	local weaponData = Items(weaponItem.name)
+	if not weaponData or not weaponData.weapon then return false end
+	if not weaponData.ammoname then return false end
+	if weaponData.ammoname ~= ammoItem.name then return false end
+
+	if not weaponItem.metadata then weaponItem.metadata = {} end
+
+	local maxAmmo = weaponData.maxammo or 9999
+	local currentAmmo = weaponItem.metadata.ammo or 0
+	local canLoad = maxAmmo - currentAmmo
+	if canLoad <= 0 then return false end
+
+	local loadCount = math.min(data.count, ammoItem.count or 0, canLoad)
+	if loadCount <= 0 then return false end
+
+	if not Inventory.RemoveItem(inv, ammoItem.name, loadCount, nil, data.ammoSlot) then return false end
+
+	local oldWeaponWeight = weaponItem.weight or 0
+	weaponItem.metadata.ammo = currentAmmo + loadCount
+	weaponItem.weight = Inventory.SlotWeight(weaponData, weaponItem)
+	inv.weight = inv.weight + (weaponItem.weight - oldWeaponWeight)
+
+	inv.changed = true
+	inv:syncSlotsWithClients({
+		{ item = weaponItem }
+	}, true)
+
+	if server.syncInventory then server.syncInventory(inv) end
+
+	return true
+end)
+
 function Inventory.Confiscate(source)
 	local inv = Inventory(source)
 

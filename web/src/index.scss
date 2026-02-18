@@ -1,13 +1,13 @@
 @use 'sass:color';
 
-$mainColor: #1a1b23;
-$textColor: #c1c2c5;
+$mainColor: #18140d;
+$textColor: #d4c4a0;
 $mainFont: 'Inter', 'Segoe UI', Roboto, sans-serif;
 
-$secondaryColor: rgba(12, 12, 12, 0.4);
-$secondaryColorHighlight: rgba(255, 255, 255, 0.06);
+$secondaryColor: rgba(10, 8, 5, 0.4);
+$secondaryColorHighlight: rgba(255, 200, 100, 0.04);
 $secondaryColorLight: rgba(0, 0, 0, 0.5);
-$secondaryColorDark: rgba(12, 12, 12, 0.8);
+$secondaryColorDark: rgba(10, 8, 5, 0.8);
 
 $gridCols: 5;
 $gridRows: 5;
@@ -15,34 +15,35 @@ $gridSize: 10.2vh;
 $gridGap: 2px;
 $containerSize: calc(#{$gridRows} * #{$gridSize + 0.22vh} + #{$gridRows} * #{$gridGap});
 
-$bg-deep: #0c0d12;
-$bg-panel: #13141c;
-$bg-card: #1a1c26;
-$bg-card-hover: #1f2130;
-$border-subtle: rgba(255, 255, 255, 0.04);
-$border-hover: rgba(140, 180, 255, 0.2);
-$text-primary: rgba(255, 255, 255, 0.92);
-$text-secondary: rgba(255, 255, 255, 0.55);
-$text-muted: rgba(255, 255, 255, 0.3);
-$accent: #5b8def;
-$accent-glow: rgba(91, 141, 239, 0.15);
-$success: #4ade80;
-$danger: #f87171;
-$warning: #fbbf24;
+// RedM western dark theme
+$bg-deep: #0e0b07;
+$bg-panel: #18140d;
+$bg-card: #201b11;
+$bg-card-hover: #2a2317;
+$border-subtle: rgba(195, 158, 80, 0.08);
+$border-hover: rgba(210, 170, 80, 0.28);
+$text-primary: rgba(230, 210, 170, 0.92);
+$text-secondary: rgba(200, 178, 130, 0.58);
+$text-muted: rgba(180, 155, 110, 0.35);
+$accent: #c8a853;
+$accent-glow: rgba(200, 168, 83, 0.14);
+$success: #7aad60;
+$danger: #c8564a;
+$warning: #c8902a;
 
-$type-player: #5b8def;
-$type-stash: #a78bfa;
-$type-shop: #4ade80;
-$type-crafting: #f59e0b;
-$type-trunk: #64748b;
-$type-drop: #f97316;
-$type-glovebox: #94a3b8;
-$type-dumpster: #84cc16;
-$type-evidence: #ef4444;
-$type-container: #8b5cf6;
-$type-newdrop: #f97316;
-$type-backpack: #e879f9;
-$type-craftinginv: #fb923c;
+$type-player: #b09868;
+$type-stash: #9a7bca;
+$type-shop: #7aad60;
+$type-crafting: #c8902a;
+$type-trunk: #7a8a7a;
+$type-drop: #c87030;
+$type-glovebox: #8a9a8a;
+$type-dumpster: #7aad50;
+$type-evidence: #c8503a;
+$type-container: #8a6ab0;
+$type-newdrop: #c87030;
+$type-backpack: #c87ab0;
+$type-craftinginv: #c87c40;
 
 :root {
   --cell-size: 5.8vh;
@@ -174,18 +175,18 @@ input[type='number']::-webkit-outer-spin-button {
 .context-menu-list {
   min-width: 230px;
   max-width: 280px;
-  background: linear-gradient(170deg, rgba(22, 24, 36, 0.97) 0%, rgba(14, 15, 22, 0.98) 100%);
+  background: linear-gradient(170deg, rgba(38, 30, 16, 0.97) 0%, rgba(20, 15, 8, 0.98) 100%);
   color: $text-primary;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(195, 158, 80, 0.1);
   border-radius: 12px;
   outline: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.5),
-    0 4px 12px rgba(0, 0, 0, 0.25);
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    0 4px 12px rgba(0, 0, 0, 0.3);
   z-index: 9999;
 }
 
@@ -545,12 +546,12 @@ input[type='number']::-webkit-outer-spin-button {
   font-family: $mainFont;
   padding: 0;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(195, 158, 80, 0.1);
   overflow: hidden;
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.55),
-    0 8px 20px rgba(0, 0, 0, 0.3);
-  background: linear-gradient(170deg, rgba(22, 24, 36, 0.97) 0%, rgba(14, 15, 22, 0.98) 100%);
+    0 20px 60px rgba(0, 0, 0, 0.6),
+    0 8px 20px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(170deg, rgba(38, 30, 16, 0.97) 0%, rgba(20, 15, 8, 0.98) 100%);
   z-index: 9999;
 }
 
@@ -1077,15 +1078,15 @@ button:active {
 }
 
 .useful-controls-dialog {
-  background: linear-gradient(170deg, rgba(22, 24, 36, 0.97) 0%, rgba(14, 15, 22, 0.98) 100%);
+  background: linear-gradient(170deg, rgba(38, 30, 16, 0.97) 0%, rgba(20, 15, 8, 0.98) 100%);
   width: 420px;
   max-height: 80vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 8px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(195, 158, 80, 0.1);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 8px 20px rgba(0, 0, 0, 0.35);
   animation: scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -1324,10 +1325,38 @@ button:active {
   flex-direction: column;
   gap: 0;
   min-width: 0;
+  position: relative;
   animation: fadeInLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .inventory-panel--right & {
     animation: none;
+  }
+
+  // Western corner accents (top)
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 14px;
+    height: 14px;
+    border-top: 1.5px solid rgba(200, 158, 70, 0.5);
+    border-left: 1.5px solid rgba(200, 158, 70, 0.5);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 14px;
+    height: 14px;
+    border-top: 1.5px solid rgba(200, 158, 70, 0.5);
+    border-right: 1.5px solid rgba(200, 158, 70, 0.5);
+    pointer-events: none;
+    z-index: 10;
   }
 }
 
@@ -1337,10 +1366,11 @@ button:active {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  background: $bg-panel;
+  background: linear-gradient(180deg, rgba(50, 38, 18, 0.9) 0%, rgba(24, 20, 13, 0.97) 100%);
   border-radius: 10px 10px 0 0;
   border: 1px solid $border-subtle;
-  border-bottom: none;
+  border-bottom: 1px solid rgba(195, 158, 80, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 210, 120, 0.04), 0 1px 6px rgba(0, 0, 0, 0.35);
   cursor: grab;
   user-select: none;
 
@@ -1388,7 +1418,22 @@ button:active {
   overflow-y: auto;
   overflow-x: hidden;
   max-height: 45vh;
-  background: $bg-deep;
+  background:
+    repeating-linear-gradient(
+      88deg,
+      transparent 0px,
+      transparent 9px,
+      rgba(200, 168, 83, 0.007) 9px,
+      rgba(200, 168, 83, 0.007) 10px
+    ),
+    repeating-linear-gradient(
+      2deg,
+      transparent 0px,
+      transparent 20px,
+      rgba(0, 0, 0, 0.022) 20px,
+      rgba(0, 0, 0, 0.022) 21px
+    ),
+    $bg-deep;
   border-radius: 0 0 10px 10px;
   border: 1px solid $border-subtle;
   border-top: none;
@@ -1529,13 +1574,13 @@ button:active {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: linear-gradient(180deg, rgba(16, 17, 24, 0.92) 0%, rgba(10, 11, 16, 0.95) 100%);
+  background: linear-gradient(180deg, rgba(30, 24, 12, 0.94) 0%, rgba(14, 11, 7, 0.96) 100%);
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(195, 158, 80, 0.1);
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 12px 40px rgba(0, 0, 0, 0.55),
     0 4px 12px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    inset 0 1px 0 rgba(255, 210, 120, 0.04);
   padding: 10px 14px 12px;
   overflow: hidden;
 }
@@ -1546,7 +1591,7 @@ button:active {
   left: 20%;
   right: 20%;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba($accent, 0.5) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(200, 168, 83, 0.45) 50%, transparent 100%);
   pointer-events: none;
 }
 
@@ -1839,10 +1884,38 @@ button:active {
   grid-template-rows: auto 1fr;
   min-width: 0;
   width: fit-content;
+  position: relative;
   animation: fadeInLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   .inventory-panel--right & {
     animation: none;
+  }
+
+  // Western corner accents (top)
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 14px;
+    height: 14px;
+    border-top: 1.5px solid rgba(200, 158, 70, 0.5);
+    border-left: 1.5px solid rgba(200, 158, 70, 0.5);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 14px;
+    height: 14px;
+    border-top: 1.5px solid rgba(200, 158, 70, 0.5);
+    border-right: 1.5px solid rgba(200, 158, 70, 0.5);
+    pointer-events: none;
+    z-index: 10;
   }
 }
 
@@ -1852,10 +1925,11 @@ button:active {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  background: $bg-card;
+  background: linear-gradient(180deg, rgba(50, 38, 18, 0.9) 0%, rgba(32, 27, 17, 0.97) 100%);
   border-radius: 8px 8px 0 0;
   border: 1px solid $border-subtle;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(195, 158, 80, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 210, 120, 0.04), 0 1px 6px rgba(0, 0, 0, 0.35);
   position: relative;
   cursor: grab;
   user-select: none;
@@ -2073,7 +2147,22 @@ $inv-types: (
   overflow-x: hidden;
   position: relative;
   max-height: 50vh;
-  background: $bg-deep;
+  background:
+    repeating-linear-gradient(
+      88deg,
+      transparent 0px,
+      transparent 9px,
+      rgba(200, 168, 83, 0.007) 9px,
+      rgba(200, 168, 83, 0.007) 10px
+    ),
+    repeating-linear-gradient(
+      2deg,
+      transparent 0px,
+      transparent 20px,
+      rgba(0, 0, 0, 0.022) 20px,
+      rgba(0, 0, 0, 0.022) 21px
+    ),
+    $bg-deep;
   border-radius: 0 0 8px 8px;
   border: 1px solid $border-subtle;
   border-top: 0;
